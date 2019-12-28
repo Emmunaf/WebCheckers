@@ -42,7 +42,7 @@ def load_config(current_session):
     current_session['config']['proxy'] = []
     current_session['config']['others'] = []
     current_session['config']['timeout'] = 6
-    #TODO fopen check
+    #TODO fopen check with context
     f_proxy = open("proxy.txt", 'r')
     #delimiter = input("Delimiter char used in combos?[,|:;]")
     for line in f_proxy.readlines():

