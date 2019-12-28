@@ -1,10 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 """checker.py: A script for automatize the procedure of checking accounts
-Edit accounts.txt file in the following format to use this script:
-
-username:password
-username2:password2
 
 Requirements:
     pip install bs4
@@ -63,7 +59,6 @@ def try_login(username, password, session_config):
 
     url_0 = 'https://www.dazn.com/it-IT/account/signin'
     url_1 = 'https://isl-eu.dazn.com/misl/eu/v4/SignIn'
-    url_2 = 'https://www.spotify.com/us/account/overview/'
     # Start a new session, to preserve the cookie
     global s
     s = requests.session()
@@ -72,7 +67,6 @@ def try_login(username, password, session_config):
     # Take session and anti-csrf Token
     #TOEDIT 1 !!!!
     first_request_header = {
-        # Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'DNT': '1',
         'Origin': 'https://www.dazn.com',
@@ -90,7 +84,6 @@ def try_login(username, password, session_config):
         'Platform': "web"
     }
     # Need to avoid b'string' with base64encode
-    bon_cookie = base64.b64encode(b"0|0|-1987903600|-83491951200|1|1|1|1").decode("utf-8")
     login_headers = {
         'User-Agent': "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/604.1.38 (KHTML, like Gecko) Version/11.0 Safari/604.1.38",
         # Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
